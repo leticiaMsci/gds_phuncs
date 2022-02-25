@@ -1,3 +1,3 @@
-# example
+# gds_phuncs
 
-This package is meant to be an example package to serve as a template for assignment 10 of the Physics 201: Data Analysis for Physicists course at Harvard in Spring 2020.
+Library of functions for making a integrated photonic device GDS. Adapted from https://code.harvard.edu/haw714/writegds, and mainly based on the phidl package.
