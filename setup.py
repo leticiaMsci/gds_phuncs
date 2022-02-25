@@ -7,7 +7,7 @@ setup(name='gds_phuncs',
 	author='Matthew Yeh',
 	author_email='myeh@g.harvard.edu',
 	license='MIT',
-	packages=['gds_phuncs'],
+	packages=['gdsphuncs'],
 	install_requires=[
 		'numpy',
 		'pandas',
