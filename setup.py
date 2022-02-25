@@ -1,11 +1,20 @@
 from setuptools import setup
 
-setup(name='example',
-      version='1.0',
-      description='An example package for Harvard PHYS201',
-      url='http://github.com/phys201/example',
-      author='ralex0',
-      author_email='ralex0@users.noreply.github.com',
-      license='GPLv3',
-      packages=['example'],
-      install_requires=['numpy'])
+setup(name='gds_phuncs',
+	version='0.1',
+	description='module for writing photonic device cad using phidl',
+	url='https://github.com/mudyeh/gds_phuncs',
+	author='Matthew Yeh',
+	author_email='myeh@g.harvard.edu',
+	license='MIT',
+	packages=['gds_phuncs'],
+	install_requires=[
+		'numpy',
+		'pandas',
+		'scipy',
+		'lmfit',
+		'matplotlib',
+		'gdspy',
+		'phidl'
+		],
+	zip_safe=False)
