@@ -468,7 +468,7 @@ def adiabatic_coupler(input_width=0.8,
         width2=output_width,
         trapz=True,
         layer=layer).move([coupling_gap + (narrow_width+wide_width)/2, taper_length + bend_length])
-    wide_bend = path_wide << route_S(wide_input.ports[2], wide_taper.ports[1], width=wide_width, layer=layer)
+    wide_bend = path_wide << gds.route_S(wide_input.ports[2], wide_taper.ports[1], width=wide_width, layer=layer)
 
     AC << path_narrow
     AC << path_wide
