@@ -164,11 +164,11 @@ def tester_ring(radius=80, ring_width=1.2, coupling_gap=1.1, waveguide_width=0.8
     return D
 
 
-def alignment_marks(Xs, Ys, layer=0):
+def alignment_marks(Xs, Ys, width=0.5, layer=0):
     #places alignment markers in 4 quadrants using the Quadrant I coordinates
     #specified by Xs and Ys
     D = Device('marks')
-    Mark = pg.cross(length = 200, width = 0.5, layer=layer)
+    Mark = pg.cross(length = 200, width = width, layer=layer)
     for x, y in zip(Xs, Ys):
         for x_side in [-1,1]:
             for y_side in [-1,1]:
