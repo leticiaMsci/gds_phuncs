@@ -21,7 +21,8 @@ def euler_imbalancers(waveguide_width=1.2,
                       waveguide_layer=2,
                       heater_layer=7,
                       metal_layer = 4,
-                      num_pts=720):
+                      num_pts=720,
+                      add_heater=False):
 
     D = Device('euler_imbalancers')
 
@@ -54,26 +55,27 @@ def euler_imbalancers(waveguide_width=1.2,
     D.add_port(name='out2', port=D['ShortPath'].ports[2])
 
     #Add heater
-    PHeater = Path()
-    PHeater.append([S,CL, CL, S])
-    X = CrossSection()
-    X.add(width=heater_width, offset=0, layer=heater_layer, ports=(1,2))
-    Heater = PHeater.extrude(width=X)
-    heater = D.add_ref(Heater)
-    heater.rotate(-90)
-    heater.ymin = D['LongPath'].ymin + waveguide_width/2 - heater_width/2
-    heater.x = D['LongPath'].x
-    # add heater pads
-    pad1 = D.add_ref(pg.rectangle(size=(100, 300), layer=metal_layer))
-    pad1.x = heater.xmin
-    pad1.ymin = heater.ymax-25
+    if add_heater:
+      PHeater = Path()
+      PHeater.append([S,CL, CL, S])
+      X = CrossSection()
+      X.add(width=heater_width, offset=0, layer=heater_layer, ports=(1,2))
+      Heater = PHeater.extrude(width=X)
+      heater = D.add_ref(Heater)
+      heater.rotate(-90)
+      heater.ymin = D['LongPath'].ymin + waveguide_width/2 - heater_width/2
+      heater.x = D['LongPath'].x
+      # add heater pads
+      pad1 = D.add_ref(pg.rectangle(size=(100, 300), layer=metal_layer))
+      pad1.x = heater.xmin
+      pad1.ymin = heater.ymax-25
 
-    pad2 = D.add_ref(pg.rectangle(size=(100, 100), layer=metal_layer))
-    pad2.x = heater.xmax
-    pad2.ymin = heater.ymax-25
+      pad2 = D.add_ref(pg.rectangle(size=(100, 100), layer=metal_layer))
+      pad2.x = heater.xmax
+      pad2.ymin = heater.ymax-25
 
-    D.add_port(name='heater1', midpoint=(pad1.xmax, pad1.ymax-50), width=100, orientation=0)
-    D.add_port(name='heater2', midpoint=(pad2.xmax, pad2.ymax-50), width=100, orientation=0)
+      D.add_port(name='heater1', midpoint=(pad1.xmax, pad1.ymax-50), width=100, orientation=0)
+      D.add_port(name='heater2', midpoint=(pad2.xmax, pad2.ymax-50), width=100, orientation=0)
     # qp(D)
     # plt.show()
 
@@ -236,6 +238,8 @@ def lnlf_amod_v1(electrode_length=10e3,
                  waveguide_layer=1,
                  electrode_layer=4,
                  boe_layer=5,
+                 heater_layer=7,
+                 add_heater=False
                  ):
     dev_name = 'lnlf_amod_v1'
     D = Device(dev_name)
@@ -290,7 +294,8 @@ def lnlf_amod_v1(electrode_length=10e3,
     D.add_port(name='g_top', port=D['ElectrodeAC'].ports['g_top'])
     D.add_port(name='g_bot', port=D['ElectrodeAC'].ports['g_bot'])
     D.add_port(name='sig', port=D['ElectrodeAC'].ports['sig'])
-    D.add_port(name='heater1', port=D['Unbalance'].ports['heater1'])
-    D.add_port(name='heater2', port=D['Unbalance'].ports['heater2'])
+    if add_heater:
+      D.add_port(name='heater1', port=D['Unbalance'].ports['heater1'])
+      D.add_port(name='heater2', port=D['Unbalance'].ports['heater2'])
 
     return D
