@@ -12,6 +12,7 @@ import phidl.device_layout as pd
 from matplotlib import pyplot as plt
 import scipy as sp
 import scipy.special
+from gdsphuncs import gds
 
 def euler_imbalancers(waveguide_width=1.2,
                       waveguide_pitch=150.0,
@@ -128,7 +129,47 @@ def eo_gsg(electrode_length=5e3,
 
     return D
 
+def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_pitch=150, layer=4):
+    D = Device('Electrode')
+    Ground = Device('Ground')
+    Signal = Device('Signal')
 
+
+    X = CrossSection()
+    X.add(width=electrode_width, offset=0, layer=layer, ports=(1,2))
+
+    P = Path().append(pp.straight(length=electrode_length)).extrude(width=X)
+
+    pad_width = waveguide_pitch - electrode_gap
+    pad = pg.rectangle(size = (pad_width, pad_width), layer=layer)
+
+    signal = Signal << pad
+    sig_top = Signal << P
+    sig_bot = Signal << P
+
+    sig_top.x = signal.x
+    sig_top.ymax = signal.ymax
+    sig_bot.x = signal.x
+    sig_bot.ymin = signal.ymin
+
+    ground = Ground << pad
+    ground_bot = Ground << P
+
+    ground_bot.x = ground.x
+    ground_bot.ymin = ground.ymin
+
+    S = D << Signal
+    G1 = D << Ground
+    G2 = (D << Ground).mirror((1, 0))
+    G1.x = S.x
+    G2.x = S.x
+    G1.ymin = S.ymax + electrode_gap
+    G2.ymax = S.ymin - electrode_gap
+
+    D = gds.merge_shapes(D, layer=layer)
+    D.add_port(name='c', midpoint=[D.x, D.y], width=pad_width, orientation=90)
+
+    return D
 
 def ybranch(waveguide_pitch=150.0,
             taper_length=200.0,
