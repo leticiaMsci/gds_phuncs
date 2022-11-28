@@ -480,12 +480,12 @@ def adiabatic_coupler(input_width=0.8,
 
     return AC
 
-def straight_coupler(radius = 170, angle=40,width_wide = 2, width_wide_ring=3, width_narrow=1, layer=0):
+def straight_coupler(radius = 170, angle=40, coupling_width=1.2, waveguide_width=0.8, layer=0):
     """
     Evanescent coupler for rings. Circular coupling region, 
     straight waveguide inputs.  
     """
-    intermediate_width = (width_wide_ring*1/3+width_narrow*2/3)
+    intermediate_width = (waveguide_width*1/3+coupling_width*2/3)
     D = Device(name= 'straight coupler')
 
     P = Path()
@@ -495,7 +495,7 @@ def straight_coupler(radius = 170, angle=40,width_wide = 2, width_wide_ring=3, w
     def width_func(t):
         #taper linearly
         fraction_points= np.array([0, 0.3,0.7, 1])
-        width_points = np.array([intermediate_width, width_narrow,width_narrow, intermediate_width])
+        width_points = np.array([intermediate_width, coupling_width, coupling_width, intermediate_width])
         return np.interp(t, fraction_points, width_points)
 
     X = CrossSection()
@@ -516,7 +516,7 @@ def straight_coupler(radius = 170, angle=40,width_wide = 2, width_wide_ring=3, w
     def width_func(t):
         #taper linearly
         fraction_points= np.array([0, 1])
-        width_points = np.array([width_wide,  intermediate_width])
+        width_points = np.array([waveguide_width,  intermediate_width])
         return np.interp(t, fraction_points, width_points)
 
     X = CrossSection()
