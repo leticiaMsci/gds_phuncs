@@ -399,6 +399,88 @@ def _taper(length=10, width1=0.8, width2=1.4, trapz=True, layer=1):
             T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
     return T
 
+# def adiabatic_coupler(input_width=0.8, 
+#     narrow_width=0.8, 
+#     wide_width=3.0,
+#     output_width=1.0, 
+#     taper_length=100,
+#     bend_length=40, 
+#     coupling_length=200, 
+#     coupling_gap=0.5, 
+#     spacing=5.0, 
+#     layer=1):
+#     """
+#     Creates an adiabatic coupler w 
+
+#     Parameters
+#     ------------------
+#     input_width: float
+#         input waveguide width in um. 
+#     narrow_width: float
+#         narrow waveguide width in um.
+#     wide_width : float
+#         wide waveguide width in um 
+#     taper_length : float
+#         length of taper from input_width to 
+#         wide/narrow waveguide width in um.
+#     bend_length : float
+#         length of bend region in um.
+#     coupling_length : float
+#         adiabatic coupling region length in um.
+#     coupling_gap : float
+#         adiabatic coupling region gap in um/
+#     spacing : float
+#         input waveguide spacing, in um. 
+#     layer : int or layer object
+#         gds layer
+#     """ 
+#     AC = Device('Adiabatic coupler')
+
+#     path_narrow = Device('Narrow arm')
+#     path_wide = Device('Wide arm')
+
+#     narrow_input = path_narrow << _taper(length=taper_length, 
+#         width1=input_width, 
+#         width2=narrow_width, 
+#         trapz=False, 
+#         layer=layer)
+#     narrow_bend = path_narrow << _taper(length=bend_length,
+#         width1=narrow_width,
+#         width2=narrow_width,
+#         trapz=False,
+#         layer=layer)
+#     narrow_bend.connect(port=1, destination=narrow_input.ports[2])
+#     narrow_taper = path_narrow << _taper(length=coupling_length,
+#         width1=narrow_width,
+#         width2=output_width,
+#         trapz=True,
+#         layer=layer).mirror()
+#     narrow_taper.connect(port=1, destination=narrow_bend.ports[2])
+
+#     wide_input = path_wide << _taper(length=taper_length, 
+#         width1=input_width, 
+#         width2=wide_width, 
+#         trapz=False, 
+#         layer=layer)
+#     path_wide.move([spacing, 0])
+#     wide_taper = path_wide << _taper(length=coupling_length,
+#         width1=wide_width,
+#         width2=output_width,
+#         trapz=True,
+#         layer=layer).move([coupling_gap + (narrow_width+wide_width)/2, taper_length + bend_length])
+#     # wide_bend = path_wide << gds.route_S(wide_input.ports[2], wide_taper.ports[1], width=wide_width, layer=layer)
+#     wide_bend = path_wide << gds.route_S(wide_input.ports[2], wide_taper.ports[1], layer=layer)
+
+#     AC << path_narrow
+#     AC << path_wide
+
+#     AC.add_port(name=1, midpoint=[0, 0], width=input_width, orientation=270)
+#     AC.add_port(name=2, midpoint=[spacing, 0], width=input_width, orientation=270)
+#     AC.add_port(name=3, midpoint=[(narrow_width-output_width)/2, taper_length+bend_length+coupling_length], width=output_width, orientation=90)
+#     AC.add_port(name=4, midpoint=[(narrow_width+output_width)/2+coupling_gap, taper_length+bend_length+coupling_length], width=output_width, orientation=90)
+
+#     return AC
+
 def adiabatic_coupler(input_width=0.8, 
     narrow_width=0.8, 
     wide_width=3.0,
@@ -407,7 +489,8 @@ def adiabatic_coupler(input_width=0.8,
     bend_length=40, 
     coupling_length=200, 
     coupling_gap=0.5, 
-    spacing=5.0, 
+    spacing=5.0,
+    compact=False, 
     layer=1):
     """
     Creates an adiabatic coupler w 
@@ -436,47 +519,54 @@ def adiabatic_coupler(input_width=0.8,
     """ 
     AC = Device('Adiabatic coupler')
 
-    path_narrow = Device('Narrow arm')
-    path_wide = Device('Wide arm')
-
-    narrow_input = path_narrow << _taper(length=taper_length, 
-        width1=input_width, 
-        width2=narrow_width, 
-        trapz=False, 
-        layer=layer)
-    narrow_bend = path_narrow << _taper(length=bend_length,
-        width1=narrow_width,
-        width2=narrow_width,
-        trapz=False,
-        layer=layer)
-    narrow_bend.connect(port=1, destination=narrow_input.ports[2])
-    narrow_taper = path_narrow << _taper(length=coupling_length,
+    narrow_taper = AC << _taper(length=coupling_length,
         width1=narrow_width,
         width2=output_width,
         trapz=True,
         layer=layer).mirror()
-    narrow_taper.connect(port=1, destination=narrow_bend.ports[2])
-
-    wide_input = path_wide << _taper(length=taper_length, 
-        width1=input_width, 
-        width2=wide_width, 
-        trapz=False, 
-        layer=layer)
-    path_wide.move([spacing, 0])
-    wide_taper = path_wide << _taper(length=coupling_length,
+    wide_taper = AC << _taper(length=coupling_length,
         width1=wide_width,
         width2=output_width,
         trapz=True,
-        layer=layer).move([coupling_gap + (narrow_width+wide_width)/2, taper_length + bend_length])
-    wide_bend = path_wide << gds.route_S(wide_input.ports[2], wide_taper.ports[1], width=wide_width, layer=layer)
+        layer=layer).move([coupling_gap + (narrow_width+wide_width)/2, 0])
 
-    AC << path_narrow
-    AC << path_wide
+    if not compact:
+        path_narrow = Device('Narrow arm')
+        path_wide = Device('Wide arm')
+        
+        narrow_input = AC << _taper(length=taper_length, 
+            width1=input_width, 
+            width2=narrow_width, 
+            trapz=False, 
+            layer=layer)
+        narrow_bend = AC << _taper(length=bend_length,
+            width1=narrow_width,
+            width2=narrow_width,
+            trapz=False,
+            layer=layer)
 
-    AC.add_port(name=1, midpoint=[0, 0], width=input_width, orientation=270)
-    AC.add_port(name=2, midpoint=[spacing, 0], width=input_width, orientation=270)
-    AC.add_port(name=3, midpoint=[(narrow_width-output_width)/2, taper_length+bend_length+coupling_length], width=output_width, orientation=90)
-    AC.add_port(name=4, midpoint=[(narrow_width+output_width)/2+coupling_gap, taper_length+bend_length+coupling_length], width=output_width, orientation=90)
+        narrow_bend.connect(port=2, destination=narrow_taper.ports[1])
+        narrow_input.connect(port=2, destination=narrow_bend.ports[1])
+
+        wide_input = AC << _taper(length=taper_length, 
+            width1=input_width, 
+            width2=wide_width, 
+            trapz=False, 
+            layer=layer)
+        wide_input.x = narrow_input.ports[1].x + spacing
+        wide_input.ymin = narrow_input.ports[1].y
+
+        wide_bend = AC << gds.route_S(wide_input.ports[2], wide_taper.ports[1], layer=layer)
+
+    if compact:
+        AC.add_port(name=1, port=narrow_taper.ports[1])
+        AC.add_port(name=2, port=wide_taper.ports[1])     
+    else:
+        AC.add_port(name=1, port=narrow_input.ports[1])
+        AC.add_port(name=2, port=wide_input.ports[1])
+
+    AC.add_port(name=3, port=narrow_taper.ports[2])
+    AC.add_port(name=4, port=wide_taper.ports[2])
 
     return AC
 

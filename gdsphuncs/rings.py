@@ -177,7 +177,9 @@ def tester_ring(radius=80,
 
     # MRR.x = coupler.ports[3].x + radius + ring_width/2 + coupling_gap
     # MRR.y = coupler.ports[3].y
+    
     coupler.connect(3, MRR.ports['l']).move([-coupling_gap, 0])
+    
 
     # txt = D << pg.text(f'wgcp{coupling_gap} wg_w{waveguide_width}\nR{radius} ring_w{ring_width}', size = 10, justify = 'center', layer=txt_layer)
     # txt.x = MRR.x
@@ -228,12 +230,14 @@ def tester_ring(radius=80,
 
         ubend = D << P.extrude(width=X)
         ubend.connect(1, coupler.ports[2])
+        
 
         D.add_port(name=1, port=t_lower.ports[1])
         D.add_port(name='tmp', midpoint = [t_lower.ports[1].x - 127, t_lower.ports[1].y], width = waveguide_width, orientation = 90)
         D.add_port(name=2, midpoint = [t_lower.ports[1].x - 127, t_lower.ports[1].y], width = waveguide_width, orientation = -90)
 
-        D << gds.route_S(ubend.ports[2], D.ports['tmp'], width=waveguide_width, layer=layer)
+        # D << gds.route_S(ubend.ports[2], D.ports['tmp'], width=waveguide_width, layer=layer) # deprecated
+        D << gds.route_S(D.ports['tmp'], ubend.ports[2], layer=layer) 
 
     D.add_port(name='c', port=MRR.ports['c'])
     D.add_port(name='u', port=MRR.ports['u'])

@@ -91,7 +91,8 @@ def eo_gsg(electrode_length=5e3,
           waveguide_width=1.2,
           waveguide_layer=2,
           electrode_layer=4,
-          boe_layer = 5
+          boe_layer = 5,
+          boe=False
           ):
 
     D = Device('eo_gsg')
@@ -103,7 +104,8 @@ def eo_gsg(electrode_length=5e3,
     wg2 = D.add_ref(WG)
     wg2.y = wg1.y+waveguide_pitch
     X_gnd =  CrossSection().add(width=electrode_gnd_width, ports=(1,2), layer=electrode_layer)
-    X_gnd.add(width=electrode_gnd_width-(boe_gap-electrode_gap)/2, offset=+(boe_gap-electrode_gap)/4, layer=boe_layer)
+    if boe:
+      X_gnd.add(width=electrode_gnd_width-(boe_gap-electrode_gap)/2, offset=+(boe_gap-electrode_gap)/4, layer=boe_layer)
     Gnd_metal = P.extrude(width=X_gnd)
     gmetal1 = D.add_ref(Gnd_metal)
     gmetal1.ymax = wg1.y-electrode_gap/2
@@ -111,7 +113,8 @@ def eo_gsg(electrode_length=5e3,
     gmetal2.rotate(180).mirror()
     gmetal2.ymin = wg2.y+electrode_gap/2
     X_sig = CrossSection().add(width=waveguide_pitch-electrode_gap, ports=(1,2), layer=electrode_layer)
-    X_sig.add(width=waveguide_pitch-boe_gap, layer=boe_layer)
+    if boe:
+      X_sig.add(width=waveguide_pitch-boe_gap, layer=boe_layer)
     sig = D.add_ref(P.extrude(width=X_sig))
     sig.ymin = wg1.y+electrode_gap/2
     # qp(D)
@@ -129,7 +132,7 @@ def eo_gsg(electrode_length=5e3,
 
     return D
 
-def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_pitch=150, layer=4):
+def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_pitch=150, max_width=150, layer=4):
     D = Device('Electrode')
     Ground = Device('Ground')
     Signal = Device('Signal')
@@ -141,7 +144,10 @@ def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_p
     P = Path().append(pp.straight(length=electrode_length)).extrude(width=X)
 
     pad_width = waveguide_pitch - electrode_gap
-    pad = pg.rectangle(size = (pad_width, pad_width), layer=layer)
+    if pad_width > max_width:
+        pad = pg.rectangle(size = (max_width, pad_width), layer=layer)
+    else: 
+        pad = pg.rectangle(size = (pad_width, pad_width), layer=layer)
 
     signal = Signal << pad
     sig_top = Signal << P
@@ -332,6 +338,91 @@ def lnlf_amod_v1(electrode_length=10e3,
 
     D.add_port(name=1,port=D['YbranchIn'].ports['in'])
     D.add_port(name=2,port=D['YbranchOut'].ports['in'])
+    D.add_port(name='g_top', port=D['ElectrodeAC'].ports['g_top'])
+    D.add_port(name='g_bot', port=D['ElectrodeAC'].ports['g_bot'])
+    D.add_port(name='sig', port=D['ElectrodeAC'].ports['sig'])
+    if add_heater:
+      D.add_port(name='heater1', port=D['Unbalance'].ports['heater1'])
+      D.add_port(name='heater2', port=D['Unbalance'].ports['heater2'])
+
+    return D
+
+def four_port_switch(coupler,
+                     branch_length=500,
+                     electrode_length=10e3,
+                     electrode_gap=3.0,
+                     boe_gap=11.0,
+                     imbalance_length=200.0,
+                     waveguide_pitch=150.0,
+                     waveguide_width=1.2,
+                     bend_radius = 200.0,
+                     waveguide_layer=1,
+                     electrode_layer=4,
+                     boe_layer=5,
+                     heater_layer=7,
+                     add_heater=False
+                     ):
+
+    D = Device('2x2 switch')
+
+    unbalance_segment = euler_imbalancers(waveguide_width=waveguide_width,
+                                          waveguide_pitch=waveguide_pitch,
+                                          radius=bend_radius,
+                                          imbalance_length=imbalance_length,
+                                          waveguide_layer=waveguide_layer)
+
+    # branch_length = 500.0
+    # branch_taper_length = 200.0
+    # ybranch_segment_in = ybranch_sine(waveguide_pitch=waveguide_pitch,
+    #                                   waveguide_width=waveguide_width,
+    #                                   taper_length=branch_taper_length,
+    #                                   branch_length=branch_length,
+    #                                   waveguide_layer=waveguide_layer
+    #                                   )
+
+    # ybranch_segment_out = ybranch_sine(waveguide_pitch=waveguide_pitch,
+    #                                    waveguide_width=waveguide_width,
+    #                                    taper_length=branch_taper_length,
+    #                                    branch_length=branch_length,
+    #                                    waveguide_layer=waveguide_layer
+    #                                    )
+
+    electrode_segment = eo_gsg(electrode_length=electrode_length,
+                                              electrode_gap=electrode_gap,
+                                              boe_gap=boe_gap,
+                                              electrode_gnd_width=waveguide_pitch,
+                                              waveguide_pitch=waveguide_pitch,
+                                              waveguide_width=waveguide_width,
+                                              waveguide_layer=waveguide_layer,
+                                              electrode_layer=electrode_layer)
+
+
+    # electrode_segment.add_ref(pg.copy_layer(electrode_segment_boe, layer=electrode_layer, new_layer=boe_layer))
+
+
+    D['Unbalance'] = D << unbalance_segment
+    D['ElectrodeAC'] = D << electrode_segment
+    D['CouplerIn'] = D << coupler
+    D['CouplerOut'] = D << coupler
+
+
+    # D['ElectrodeAC'].connect(port='in1', destination=D['CouplerIn'].ports['out1'])
+    D['Unbalance'].connect(port='in1', destination=D['ElectrodeAC'].ports['out1'])
+    # D['CouplerOut'].connect(port='out2', destination=D['Unbalance'].ports['out1'])
+    D['CouplerIn'].xmax = D['ElectrodeAC'].ports['in1'].x - branch_length
+    D['CouplerIn'].y = (D['ElectrodeAC'].ports['in1'].y + D['ElectrodeAC'].ports['in2'].y)/2
+    D << gds.route_S(D['CouplerIn'].ports[4], D['ElectrodeAC'].ports['in1'], layer=waveguide_layer)
+    D << gds.route_S(D['CouplerIn'].ports[3], D['ElectrodeAC'].ports['in2'], layer=waveguide_layer)
+
+    D['CouplerOut'].xmin = D['Unbalance'].ports['out1'].x + branch_length
+    D['CouplerOut'].y = (D['Unbalance'].ports['out1'].y + D['Unbalance'].ports['out2'].y)/2
+    D << gds.route_S(D['Unbalance'].ports['out2'], D['CouplerOut'].ports[1], layer=waveguide_layer)
+    D << gds.route_S(D['Unbalance'].ports['out1'], D['CouplerOut'].ports[2], layer=waveguide_layer)
+
+    D.add_port(name=1,port=D['CouplerIn'].ports[1])
+    D.add_port(name=2,port=D['CouplerIn'].ports[2])
+    D.add_port(name=3,port=D['CouplerOut'].ports[3])
+    D.add_port(name=4,port=D['CouplerOut'].ports[4])
     D.add_port(name='g_top', port=D['ElectrodeAC'].ports['g_top'])
     D.add_port(name='g_bot', port=D['ElectrodeAC'].ports['g_bot'])
     D.add_port(name='sig', port=D['ElectrodeAC'].ports['sig'])
