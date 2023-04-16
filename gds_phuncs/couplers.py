@@ -11,7 +11,7 @@ import phidl.device_layout as pd
 from matplotlib import pyplot as plt
 import scipy as sp
 import scipy.special
-from gdsphuncs import gds
+from gds_phuncs import gds
 
 def grating(period,
             number_of_teeth,

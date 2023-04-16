@@ -11,8 +11,8 @@ import phidl.device_layout as pd
 from matplotlib import pyplot as plt
 import scipy as sp
 import scipy.special
-from gdsphuncs import couplers as cpl
-from gdsphuncs import gds
+from gds_phuncs import couplers as cpl
+from gds_phuncs import gds
 
 def taper_racetrack(radius = 10, length=20, width_wide = 3, width_narrow=1, euler_frac=0.5, points = 200, symmetric=False, layer = 0):
     """Make a euler racetrack with width tapering on left side
@@ -81,7 +81,7 @@ def circle_ring(radius=80, waveguide_width=0.8, angle_resolution=0.1, layer=1):
     R.add_port(name = 'd', midpoint = [0, -radius-waveguide_width/2], width = waveguide_width, orientation = 270)
     R.add_port(name = 'l', midpoint = [-radius-waveguide_width/2, 0], width = waveguide_width, orientation = 180)
     R.add_port(name = 'r', midpoint = [+radius+waveguide_width/2, 0], width = waveguide_width, orientation = 0)
-    R.add_port(name='c', midpoint=[R.x, R.y], width=width_narrow, orientation=90)
+    R.add_port(name='c', midpoint=[R.x, R.y], width=1, orientation=90)
     return R
 
 def tester_ring(radius=80, 

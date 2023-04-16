@@ -11,7 +11,7 @@ import phidl.device_layout as pd
 from matplotlib import pyplot as plt
 import scipy as sp
 import scipy.special
-from gdsphuncs import couplers as cpl
+from gds_phuncs import couplers as cpl
 
 
 # def route_S(port1, port2, width=0.8, rmin=80, layer=1):
