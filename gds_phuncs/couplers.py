@@ -23,7 +23,7 @@ def grating(period,
             focus_width=-1,
             evaluations=50,
             overlap=0,
-            layer=0,
+            gc_layer=0,
             datatype=0):
     '''
     Straight or focusing grating.
@@ -54,7 +54,7 @@ def grating(period,
             period * fill_frac, [width], [],
             number_of_teeth,
             period,
-            layer=layer,
+            layer=gc_layer,
             datatype=datatype)
     else:
         neff = lda / float(period) + sin_theta
@@ -71,7 +71,7 @@ def grating(period,
                     c2 - c3 * (width * t - w)**2)) / c3),
                 number_of_evaluations=evaluations,
                 max_points=max_points,
-                layer=layer,
+                layer=gc_layer,
                 datatype=datatype)
             path.x = 0
             path.y = 0
@@ -84,7 +84,7 @@ def grating(period,
             path.fracture()
 
     D = Device('grating_coupler')
-    D.add_polygon(path, layer=layer)
+    D.add_polygon(path, layer=gc_layer)
     D.add_port(name=1, midpoint = [0,overlap], width = focus_width, orientation = 270)
     D.rotate(180)
     return D
@@ -389,15 +389,27 @@ def mmi(length=74, width=9, spacing=3.2, taper_width=1.4, waveguide_width=0.8, t
 def _taper(length=10, width1=0.8, width2=1.4, trapz=True, layer=1):
     T = Device('taper')
     if trapz:
-            T.add_polygon([(0, 0), (width1, 0), (width2, length), (0, length)], layer=layer)
-            T.add_port(name = 1, midpoint = [width1/2, 0], width = width1, orientation = 270)
-            T.add_port(name = 2, midpoint = [width2/2, length], width = width2, orientation = 90)
-            T.move([-width1/2, 0])
+        T.add_polygon([(0, 0), (width1, 0), (width2, length), (0, length)], layer=layer)
+        T.add_port(name = 1, midpoint = [width1/2, 0], width = width1, orientation = 270)
+        T.add_port(name = 2, midpoint = [width2/2, length], width = width2, orientation = 90)
+        T.move([-width1/2, 0])
     else:
-            T.add_polygon([(-width1/2, 0), (width1/2, 0), (width2/2, length), (-width2/2, length)], layer=layer)
-            T.add_port(name = 1, midpoint = [0, 0], width = width1, orientation = 270)
-            T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
+        T.add_polygon([(-width1/2, 0), (width1/2, 0), (width2/2, length), (-width2/2, length)], layer=layer)
+        T.add_port(name = 1, midpoint = [0, 0], width = width1, orientation = 270)
+        T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
     return T
+
+
+def taper(length=10, width1=0.8, width2=1.4, layer=1):
+    T = Device('taper')
+
+    T.add_polygon([(-width1/2, 0), (width1/2, 0), (width2/2, length), (-width2/2, length)], layer=layer)
+    T.add_port(name = 1, midpoint = [0, 0], width = width1, orientation = 270)
+    T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
+    T.move([-width1/2, 0])
+
+    return T
+
 
 # def adiabatic_coupler(input_width=0.8, 
 #     narrow_width=0.8, 
@@ -570,7 +582,7 @@ def adiabatic_coupler(input_width=0.8,
 
     return AC
 
-def straight_coupler(radius = 170, angle=40, coupling_width=1.2, waveguide_width=0.8, layer=0):
+def straight_coupler(radius = 170, angle=40, coupling_width=1.2, waveguide_width=0.8, layer=0, coupling_angle = 20):
     """
     Evanescent coupler for rings. Circular coupling region, 
     straight waveguide inputs.  
@@ -709,3 +721,147 @@ def circular_coupler(radius_coupler=80, coupler_angle=30, radius_bend=60, width_
     D.add_port(name=2, midpoint = [taper_left.ports[2].x, taper_left.ports[2].y], width = width_io, orientation = 270)
 
     return D
+
+
+def mode_size_converter(
+    positive_resist = True,
+    taper_wg1 = 0.05,
+    taper_wg2 = 1,
+    taper_slab0 = 0.15,
+    taper_slab1 = 1.2,
+    taper_slab2 = 12,
+    clearance_w = 90,
+    # clearance_l = 455,
+    length_ct_1 = 5,
+    length_ct_2 = 0.5,
+    length_ct_3 = 5,
+    length1 = 300,
+    length2 = 150,
+    wg_layer = 1,
+    msc_layer=2,
+    clearance_layer = 99,
+    transition_width_type = "linear",
+    reference_layer = 199,
+    reference = True,
+    reference_length = 20,
+    reference_width = 0.6):
+
+
+    X0 = CrossSection()
+    X0.add(width = taper_slab0, offset = 0, layer = msc_layer, name = 'msc', ports = ("msc1", "msc2"))
+
+    # Create our first CrossSection
+
+    X1 = CrossSection()
+    X1.add(width = taper_wg1, offset = 0, layer = wg_layer, name = 'wg', ports = ('in1', 'out1'))
+    X1.add(width = taper_slab1, offset = 0, layer = msc_layer, name = 'msc', ports = ("msc1", "msc2"))
+
+
+    # Create the second CrossSection that we want to transition to
+    X2 = CrossSection()
+    X2.add(width = taper_wg2, offset = 0, layer = wg_layer, name = 'wg', ports = ('in2', 'out2'))
+    X2.add(width = taper_slab2, offset = 0, layer = msc_layer, name = 'msc', ports = ("msc1", "msc2"))
+
+
+    # To show the cross-sections, let's create two Paths and
+    # create Devices by extruding them
+    P0 = pp.straight(length = length_ct_1)
+    P2 = pp.straight(length = length_ct_2)
+    P4 = pp.straight(length = length_ct_3)
+    WG0 = P0.extrude(X0)
+    WG2 = P2.extrude(X1)
+    WG4 = P4.extrude(X2)
+
+
+    # Create the transitional CrossSection
+    Xtrans1 = pp.transition(cross_section1 = X0,
+                        cross_section2 = X1,
+                        width_type = transition_width_type)
+    # Create a Path for the transitional CrossSection to follow
+    P1 = pp.straight(length = length1)
+    # Use the transitional CrossSection to create a Device
+    WG_trans1 = P1.extrude(Xtrans1)
+
+    # Create the transitional CrossSection
+    Xtrans3 = pp.transition(cross_section1 = X1,
+                        cross_section2 = X2,
+                        width_type = transition_width_type)
+    # Create a Path for the transitional CrossSection to follow
+    P3 = pp.straight(length = length2)
+    # Use the transitional CrossSection to create a Device
+    WG_trans3 = P3.extrude(Xtrans3)
+
+    # qp(WG_trans1)
+
+
+    D = Device()
+    wg0 = D<<WG0
+    wg1 = D<<WG_trans1
+    wg2 = D << WG2
+    wg3 = D<< WG_trans3
+    wg4 = D << WG4
+
+    wg1.connect('msc1', wg0.ports['msc2'])
+    wg2.connect('msc1', wg1.ports['msc2'])
+    wg3.connect('msc1', wg2.ports['msc2'])
+    wg4.connect('msc1', wg3.ports['msc2'])
+
+    clearance_l = D.xsize
+
+    R = pg.rectangle(size = [clearance_l, clearance_w], layer=clearance_layer)
+    R.move(origin = [R.xmax, R.y], destination=[D.xmax, D.y])
+
+
+    if positive_resist:
+        # only if positive resist
+
+
+        D1= pg.extract(D, layers = [msc_layer])
+        Dexpanded1 = pg.offset(D1, distance = 1, join_first = False, precision = 1e-6,
+            num_divisions = [1,1], layer = 0)
+        
+        
+        D2 = pg.boolean(A = Dexpanded1, B = R, operation = 'and', precision = 1e-6,
+                num_divisions = [1,1], layer = msc_layer)
+        
+        Dexpanded2 = pg.offset(D1, distance = 2, join_first = False, precision = 1e-6,
+            num_divisions = [1,1], layer = msc_layer)
+        D22 = pg.boolean(A = Dexpanded2, B = R, operation = 'and', precision = 1e-6,
+                num_divisions = [1,1], layer = msc_layer)
+
+        D.remove_layers(layers=[msc_layer])
+        
+        D3 = D<<pg.boolean(A = D1, B = D22, operation = 'xor', precision = 1e-6,
+                num_divisions = [1,1], layer = msc_layer)
+
+        XOR = pg.boolean(A = R, B = D2, operation = 'xor', precision = 1e-6,
+                    num_divisions = [1,1], layer = clearance_layer)
+        clearance = D<<XOR
+
+    else:
+        clearance = D<<R
+
+    if reference:
+        X1 = pg.cross(length = reference_length, width = reference_width, layer = reference_layer)
+
+        x1_t = D<<X1
+        x1_t.center = (wg1.ports['msc2'].x, clearance.ymax)
+
+        x1_b = D<<X1
+        x1_b.center = (wg1.ports['msc2'].x, clearance.ymin)
+
+        if length_ct_1>1.2*reference_length:
+            x2_t = D<<X1
+            x2_t.center = (wg0.ports['msc2'].x, clearance.ymax)
+
+            x2_b = D<<X1
+            x2_b.center = (wg0.ports['msc2'].x, clearance.ymin)
+
+
+
+
+    D.add_port(name = 1, port = wg0.ports['msc1'])
+    D.add_port(name = 2, port = wg4.ports['out2'])
+
+    D.flatten()
+    return(D)

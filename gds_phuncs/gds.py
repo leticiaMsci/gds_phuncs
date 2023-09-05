@@ -14,6 +14,102 @@ import scipy.special
 from gds_phuncs import couplers as cpl
 
 
+def ybranch(waveguide_pitch=150.0,
+            taper_length=200.0,
+            waveguide_width=1.2,
+            waveguide_layer=2):
+    D = Device()
+
+    T = pg.taper(length=taper_length, width1=waveguide_width, width2=2*waveguide_width, layer=waveguide_layer)
+    T.add_port(name='out1', midpoint=(T.xmax, T.center[1]+0.5*waveguide_width), orientation=0)
+    T.add_port(name='out2', midpoint=(T.xmax, T.center[1]-0.5*waveguide_width), orientation=0)
+
+    P1 = Path()
+
+    X = CrossSection()
+    X.add(width=waveguide_width, offset=0, layer=waveguide_layer, ports=(1, 2))
+
+    r = 0.5 * (waveguide_pitch - waveguide_width) / (2 * (1 - np.sin(np.pi / 180 * 45)))
+    # print('radius=' + str(r))
+    S1 = pp.euler(radius=r, angle=45, use_eff=True)
+    S2 = pp.euler(radius=r, angle=-45, use_eff=True)
+
+    P1.append([S1, S2])
+
+    # s, K = P1.curvature()
+    #
+    # plt.plot(s, K, '.-')
+    # plt.xlabel('Position along curve (arc length)')
+    # plt.ylabel('Curvature')
+
+    W1 = P1.extrude(width=X)
+    W2 = pg.copy(W1).mirror(p1=(0, 0), p2=(1, 0))
+
+    D['Taper'] = D << T
+    D['S1'] = D << W1
+    D['S2'] = D << W2
+
+    D['S1'].connect(port=1, destination=D['Taper'].ports['out1'])
+    D['S2'].connect(port=1, destination=D['Taper'].ports['out2'])
+
+    D.add_port(name='in', port=D['Taper'].ports[1])
+    D.add_port(name='out1', port=D['S2'].ports[2])
+    D.add_port(name='out2', port=D['S1'].ports[2])
+
+    return D
+
+
+def ybranch_sine(waveguide_pitch=350.0,
+                 waveguide_width=1.2,
+                 taper_length=200.0,
+                 branch_length=500.0,
+                 waveguide_layer=2,
+                 plot_curvature=True
+                ):
+
+    D = Device('ybranch_sine')
+
+    T = pg.taper(length=taper_length, width1=waveguide_width, width2=2 * waveguide_width, layer=waveguide_layer)
+    T.add_port(name='out1', midpoint=(T.xmax, T.center[1] + 0.5 * waveguide_width), orientation=0)
+    T.add_port(name='out2', midpoint=(T.xmax, T.center[1] - 0.5 * waveguide_width), orientation=0)
+
+    P1 = Path()
+    S = pp.straight(length=branch_length)
+
+    def sine_s_bend(t):
+        A = 0.5 * 0.5 * (waveguide_pitch - waveguide_width)
+        w = -A * (1+np.cos(np.pi*t + np.pi)) - 0.5*waveguide_width
+        return w
+
+    P1.append(S)
+    P1.offset(offset=sine_s_bend)
+
+    # if plot_curvature:
+    #     s, K = P1.curvature()
+
+    #     plt.plot(s, K, '.-')
+    #     plt.xlabel('Position along curve (arc length)')
+    #     plt.ylabel('Curvature')
+
+    X = CrossSection()
+    X.add(width=waveguide_width, offset=0, layer=waveguide_layer, ports=(1,2))
+
+    W1 = P1.extrude(width=X)
+    W2 = pg.copy(W1).mirror(p1=(0, 0), p2=(1, 0))
+
+    D['Taper'] = D << T
+    D['S1'] = D << W1
+    D['S2'] = D << W2
+
+    D['S1'].connect(port=1, destination=D['Taper'].ports['out1'])
+    D['S2'].connect(port=1, destination=D['Taper'].ports['out2'])
+
+    D.add_port(name='in', port=D['Taper'].ports[1])
+    D.add_port(name='out1', port=D['S2'].ports[2])
+    D.add_port(name='out2', port=D['S1'].ports[2])
+
+    return D
+
 # def route_S(port1, port2, width=0.8, rmin=80, layer=1):
 #     """
 #     Utility for sigmoid routing between two ports,
@@ -265,3 +361,135 @@ def inverse_dev(dev, layer_invert=4, layer_new = 15, border=0):
     newdev = merge_shapes(newdev, layer=layer_invert)
     newdev = pg.invert(newdev, border=border, layer=layer_new)
     return newdev
+
+
+def caliper(layers, 
+            caliper_w = 2,
+            caliper_h = 20,
+            caliper_spacing_0 = 7,
+            caliper_spacing_d = 0.1):
+    
+    C =  Device("Caliper")
+    
+    for ii, layer in enumerate(layers):
+        print(layer)
+        spacing = caliper_spacing_0 - ii*caliper_spacing_d
+
+        Caliper = pg.litho_ruler(
+            height = caliper_h ,
+            width = caliper_w,
+            spacing = spacing,
+            scale = [1,1,1,1,1,1,1,1,1,1],
+            num_marks = 21,
+            layer = layer,
+            )
+        caliper = C<<Caliper
+        caliper.movey(caliper_h*ii)
+        caliper.x = 0
+        
+    return C.flatten()
+
+
+def alignment_mark_ebeam(
+    cross_w = 1, #width of cross
+    cross_h = 200, # height of cross
+    caliper_layers = None, # list of layers in order to which write calipers
+    caliper_bool = True,
+    mark_layer = 0, # alignment mar layer
+    align_box_layer=15,
+    label = ""): #box for opening pmma box
+    
+    if caliper_layers is None and caliper_bool:
+        caliper_layers=[mark_layer]
+
+    Mark = Device("Mark")
+
+    X = pg.cross(length = cross_h, width = cross_w, layer = mark_layer)
+
+    temp = pg.rectangle(size = (2*cross_w, 2*cross_w))
+    temp.center = X.center
+
+    X = pg.boolean(A=X, B=temp, operation="not", precision = 1e-6, num_divisions = [1,1], layer = mark_layer)
+    x = Mark<<X
+
+
+    Sq = pg.rectangle(size = (cross_w/2, cross_w/2), layer=mark_layer)
+    sq1 = Mark<<Sq
+    sq1.move(origin=(sq1.xmin, sq1.ymin), destination = x.center)
+    sq2 = Mark<<Sq
+    sq2.move(origin=(sq2.xmax, sq2.ymax), destination = x.center)
+    
+    if caliper_layers is not None:
+        Caliper = caliper(caliper_layers)
+        c1 = Mark<<Caliper
+        c1.x = x.x
+        c1.ymin = x.ymax
+        c2 = Mark<<Caliper
+        c2.rotate(-90)
+        c2.xmin, c2.y  = x.xmax, x.y
+    
+    if align_box_layer is not None:
+        Box = pg.rectangle(size = (cross_h*0.9, cross_h*0.9), layer = align_box_layer)
+        box = Mark<<Box
+        box.center = x.center
+    
+    txt = Mark<<pg.text(text=label, size=cross_h/10, layer=mark_layer)
+    txt.center = [box.xmax/2, box.ymax/2]
+
+    Mark.add_port(name = "c", midpoint = x.center)
+
+    return Mark.flatten()
+
+
+def gsg_contacts(gsg_w=70, gsg_pitch=150, layer = 14):
+    GSG = Device()
+    Pad = pg.straight(size = (gsg_w,gsg_w), layer = layer).rotate(90)
+
+
+    GSG = Device()
+    g1 = GSG<<Pad
+    s = GSG<<Pad
+    s.movey(gsg_pitch)
+    g2 = GSG<<Pad
+    g2.movey(2*gsg_pitch)
+
+    GSG.add_port(name = "g1", port = g1.ports[2])
+    GSG.add_port(name = "g2", port = g2.ports[2])
+    GSG.add_port(name = "s", port = s.ports[2])
+
+    return GSG.flatten()
+    
+def ruler_ports(ruler_spacing = 50,
+                ruler_w = 2,
+                ruler_h = 50,
+                port_spacing = 142,
+                N_ports = 2,
+                wg_layer = 1,
+                port_w = 1.5,
+                ruler_max_w = 100
+                ):
+
+    num_marks = min(21, ruler_max_w//ruler_spacing)
+    
+    Ruler = Device()
+    Ruler0 = pg.litho_ruler(height = ruler_h ,
+        width = ruler_w,
+        spacing = ruler_spacing,
+        scale = [3,1,1,1,1,2,1,1,1,1],
+        num_marks = num_marks,
+        layer = wg_layer,
+
+        )
+    ports = []
+    for ii in range(N_ports):
+        ports.append(
+            Ruler.add_port(name=ii+1, midpoint=(ii*port_spacing, 0), width=port_w, orientation=90)
+        )
+
+    ruler1 = Ruler<<Ruler0
+    ruler1.mirror(p1=(ruler_w/2, 1), p2=(ruler_w/2, 0))
+    ruler1.move(origin = [ruler_w/2, 0], destination=[ports[0].x-ruler_spacing, 0])
+    ruler2 = Ruler<<Ruler0
+    ruler2.move(origin = [ruler_w/2, 0], destination=[ports[-1].x+ruler_spacing, 0])
+
+    return Ruler.flatten()

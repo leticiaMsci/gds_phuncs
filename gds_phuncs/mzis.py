@@ -13,6 +13,10 @@ from matplotlib import pyplot as plt
 import scipy as sp
 import scipy.special
 from gds_phuncs import gds
+from gds_phuncs.gds import ybranch, ybranch_sine
+
+
+
 
 def euler_imbalancers(waveguide_width=1.2,
                       waveguide_pitch=150.0,
@@ -22,7 +26,7 @@ def euler_imbalancers(waveguide_width=1.2,
                       waveguide_layer=2,
                       heater_layer=7,
                       metal_layer = 4,
-                      num_pts=720,
+                      num_pts=900,
                       add_heater=False):
 
     D = Device('euler_imbalancers')
@@ -157,6 +161,8 @@ def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_p
     sig_top.ymax = signal.ymax
     sig_bot.x = signal.x
     sig_bot.ymin = signal.ymin
+    
+
 
     ground = Ground << pad
     ground_bot = Ground << P
@@ -174,106 +180,56 @@ def gsg(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_p
 
     D = gds.merge_shapes(D, layer=layer)
     D.add_port(name='c', midpoint=[D.x, D.y], width=pad_width, orientation=90)
+    D.add_port(name=1, midpoint = [D.xmin, waveguide_pitch-electrode_gap/2], orientation=0)
+    D.add_port(name=2, midpoint = [D.xmin, -electrode_gap/2], orientation=0)
+    D.add_port(name=3, midpoint = [D.xmax, waveguide_pitch-electrode_gap/2], orientation=180)
+    D.add_port(name=4, midpoint = [D.xmax, -electrode_gap/2], orientation=180)
 
-    return D
+    return D.flatten()
 
-def ybranch(waveguide_pitch=150.0,
-            taper_length=200.0,
-            waveguide_width=1.2,
-            waveguide_layer=2):
-    D = Device()
-
-    T = pg.taper(length=taper_length, width1=waveguide_width, width2=2*waveguide_width, layer=waveguide_layer)
-    T.add_port(name='out1', midpoint=(T.xmax, T.center[1]+0.5*waveguide_width), orientation=0)
-    T.add_port(name='out2', midpoint=(T.xmax, T.center[1]-0.5*waveguide_width), orientation=0)
-
-    P1 = Path()
+def gs(electrode_length=5e3, electrode_gap=5.5, electrode_width=10, waveguide_pitch=150, max_width=150, layer=4):
+    D = Device('Electrode')
+    Ground = Device('Ground')
+    Signal = Device('Signal')
 
     X = CrossSection()
-    X.add(width=waveguide_width, offset=0, layer=waveguide_layer, ports=(1, 2))
+    X.add(width=electrode_width, offset=0, layer=layer, ports=(1,2))
 
-    r = 0.5 * (waveguide_pitch - waveguide_width) / (2 * (1 - np.sin(np.pi / 180 * 45)))
-    # print('radius=' + str(r))
-    S1 = pp.euler(radius=r, angle=45, use_eff=True)
-    S2 = pp.euler(radius=r, angle=-45, use_eff=True)
+    P = Path().append(pp.straight(length=electrode_length)).extrude(width=X)
 
-    P1.append([S1, S2])
+    pad_width = waveguide_pitch - electrode_gap
+    if pad_width > max_width:
+        pad = pg.rectangle(size = (max_width, pad_width), layer=layer)
+    else: 
+        pad = pg.rectangle(size = (pad_width, pad_width), layer=layer)
 
-    # s, K = P1.curvature()
-    #
-    # plt.plot(s, K, '.-')
-    # plt.xlabel('Position along curve (arc length)')
-    # plt.ylabel('Curvature')
+    signal = Signal << pad
+    # sig_top = Signal << P
+    sig_bot = Signal << P
 
-    W1 = P1.extrude(width=X)
-    W2 = pg.copy(W1).mirror(p1=(0, 0), p2=(1, 0))
+    # sig_top.x = signal.x
+    # sig_top.ymax = signal.ymax
+    sig_bot.x = signal.x
+    sig_bot.ymin = signal.ymin
 
-    D['Taper'] = D << T
-    D['S1'] = D << W1
-    D['S2'] = D << W2
+    ground = Ground << pad
+    ground_bot = Ground << P
 
-    D['S1'].connect(port=1, destination=D['Taper'].ports['out1'])
-    D['S2'].connect(port=1, destination=D['Taper'].ports['out2'])
+    ground_bot.x = ground.x
+    ground_bot.ymin = ground.ymin
 
-    D.add_port(name='in', port=D['Taper'].ports[1])
-    D.add_port(name='out1', port=D['S2'].ports[2])
-    D.add_port(name='out2', port=D['S1'].ports[2])
+    S = D << Signal
+    # G1 = D << Ground
+    G2 = (D << Ground).mirror((1, 0))
+    # G1.x = S.x
+    G2.x = S.x
+    # G1.ymin = S.ymax + electrode_gap
+    G2.ymax = S.ymin - electrode_gap
 
+    D = gds.merge_shapes(D, layer=layer)
+    D.add_port(name='c', midpoint=[D.x, D.y], width=pad_width, orientation=90)
+    D.center = (0,0)
     return D
-
-
-def ybranch_sine(waveguide_pitch=350.0,
-                 waveguide_width=1.2,
-                 taper_length=200.0,
-                 branch_length=500.0,
-                 waveguide_layer=2,
-                 plot_curvature=True
-                ):
-
-    D = Device('ybranch_sine')
-
-    T = pg.taper(length=taper_length, width1=waveguide_width, width2=2 * waveguide_width, layer=waveguide_layer)
-    T.add_port(name='out1', midpoint=(T.xmax, T.center[1] + 0.5 * waveguide_width), orientation=0)
-    T.add_port(name='out2', midpoint=(T.xmax, T.center[1] - 0.5 * waveguide_width), orientation=0)
-
-    P1 = Path()
-    S = pp.straight(length=branch_length)
-
-    def sine_s_bend(t):
-        A = 0.5 * 0.5 * (waveguide_pitch - waveguide_width)
-        w = -A * (1+np.cos(np.pi*t + np.pi)) - 0.5*waveguide_width
-        return w
-
-    P1.append(S)
-    P1.offset(offset=sine_s_bend)
-
-    # if plot_curvature:
-    #     s, K = P1.curvature()
-
-    #     plt.plot(s, K, '.-')
-    #     plt.xlabel('Position along curve (arc length)')
-    #     plt.ylabel('Curvature')
-
-    X = CrossSection()
-    X.add(width=waveguide_width, offset=0, layer=waveguide_layer, ports=(1,2))
-
-    W1 = P1.extrude(width=X)
-    W2 = pg.copy(W1).mirror(p1=(0, 0), p2=(1, 0))
-
-    D['Taper'] = D << T
-    D['S1'] = D << W1
-    D['S2'] = D << W2
-
-    D['S1'].connect(port=1, destination=D['Taper'].ports['out1'])
-    D['S2'].connect(port=1, destination=D['Taper'].ports['out2'])
-
-    D.add_port(name='in', port=D['Taper'].ports[1])
-    D.add_port(name='out1', port=D['S2'].ports[2])
-    D.add_port(name='out2', port=D['S1'].ports[2])
-
-    return D
-
-
 
 def lnlf_amod_v1(electrode_length=10e3,
                  electrode_gap=3.0,

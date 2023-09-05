@@ -14,7 +14,11 @@ import scipy.special
 from gds_phuncs import couplers as cpl
 from gds_phuncs import gds
 
-def taper_racetrack(radius = 10, length=20, width_wide = 3, width_narrow=1, euler_frac=0.5, points = 200, symmetric=False, layer = 0):
+def taper_racetrack(radius = 10, length=20, width_wide = 3, 
+                width_narrow=1, euler_frac=0.5, points = 200, 
+                symmetric=False, layer = 0,
+                coupling_angle_ring = 150, coupling_angle_coupler = 30,
+                bend_radius = 170):
     """Make a euler racetrack with width tapering on left side
     radius - true radius of the circular bend in the center of the 180 bends. NB the effective bend radius will be larger
     length - length of the straight section, um
@@ -25,9 +29,14 @@ def taper_racetrack(radius = 10, length=20, width_wide = 3, width_narrow=1, eule
     """
     D = Device(name= 'euler track')
     #Make left euler bend
+    euler = pp.euler(radius = radius, angle = (180-coupling_angle_ring)/2)
+    arc = pp.arc(radius = bend_radius, angle=coupling_angle_ring)
+
+
     P = Path()
-    P.append(pp.euler(radius=radius, angle=180, p=euler_frac))
+    P.append([euler, arc, euler])
     P.mirror()
+
     print('Euler racetrack: length of 180 bend: {:.4} um, bent_fraction={:.3}'.format(P.length(), P.length()/(length+P.length())))
 
     def width_func(t):
@@ -242,5 +251,112 @@ def tester_ring(radius=80,
     D.add_port(name='c', port=MRR.ports['c'])
     D.add_port(name='u', port=MRR.ports['u'])
     D.add_port(name='d', port=MRR.ports['d'])
+
+    return D
+
+
+
+
+def coupler_and_ring(radius=80, 
+                ring_width=1.2, 
+                coupling_gap=1.1,
+                coupling_width=1.0, 
+                waveguide_width=0.8, 
+                straight_length=100,
+                racetrack_length=450,
+                ring_coupling_gap=0.55, 
+                ring_type='circle', 
+                coupler_type='circle',
+                compact=True, 
+                layer=1):
+    """
+    For making coupled rings. This functionality only creates the 
+    waveguide components, NOT the text labels or the grating couplers.
+
+    radius : float
+        ring radius in um
+    ring_width : float
+        ring waveguide width in um. 
+        Sets the coupling region waveguide width as well.
+    coupling_gap : float
+        coupling gap in um
+    waveguide_width : float
+        input/output waveguide width in um
+    taper_length : float
+        length of taper from waveguide_width to ring_width
+    ring_type : string
+        circle or euler. Sets ring type
+    coupler_type : string
+        circle or straight. Sets coupler type
+    layer : int or layer object
+        device layer
+
+    """
+    D = Device('tester ring')
+    if ring_type == 'circle' or ring_type == 'c':
+        MRR = D << circle_ring(radius = radius, 
+                               waveguide_width=ring_width, 
+                               angle_resolution=0.1, 
+                               layer=layer)
+        pitches = (2 * radius) // 127 + 1
+    elif ring_type == 'racetrack' or ring_type == 'r':
+        MRR = D << taper_racetrack(radius = radius, 
+                                   length=racetrack_length, 
+                                   width_wide = ring_width, 
+                                   width_narrow=coupling_width, 
+                                   euler_frac=0.5,
+                                   symmetric=True, 
+                                   layer = layer)
+    elif ring_type == 'cc':
+        ring = circle_ring(radius = radius, 
+                               waveguide_width=ring_width, 
+                               angle_resolution=0.1, 
+                               layer=layer)
+        MRR = D << ring
+        MRR2 = D << ring
+        
+        MRR2.connect('l', MRR.ports['r']).move([ring_coupling_gap, 0])
+
+        D.add_port(name='c2', port=MRR2.ports['c'])
+        D.add_port(name='u2', port=MRR2.ports['u'])
+        D.add_port(name='d2', port=MRR2.ports['d'])   
+
+        pitches = (4 * radius) // 127 + 1
+    elif ring_type == 'rr':
+        ring = taper_racetrack(radius = radius, 
+                               length=racetrack_length, 
+                               width_wide = ring_width, 
+                               width_narrow=coupling_width, 
+                               euler_frac=0.5,
+                               symmetric=True, 
+                               layer = layer)
+        MRR = D << ring
+        MRR2 = D << ring
+        
+        MRR2.connect('l', MRR.ports['r']).move([ring_coupling_gap, 0])
+
+        pitches = (4 * radius) // 127 + 1
+
+        D.add_port(name='c2', port=MRR2.ports['c'])
+        D.add_port(name='u2', port=MRR2.ports['u'])
+        D.add_port(name='d2', port=MRR2.ports['d'])    
+
+    if coupler_type == 'circle': 
+        coupler = D << cpl.straight_coupler(radius = radius, 
+                                    angle=40, 
+                                    coupling_width = coupling_width, 
+                                    waveguide_width = waveguide_width,
+                                    layer=layer).rotate(90)
+
+    coupler.connect(3, MRR.ports['l']).move([-coupling_gap, 0])
+    
+
+
+    D.add_port(name='c', port=MRR.ports['c'])
+    D.add_port(name='u', port=MRR.ports['u'])
+    D.add_port(name='d', port=MRR.ports['d'])
+    D.add_port(name=1, port=coupler.ports[1])
+    D.add_port(name=2, port=coupler.ports[2])
+    D.add_port(name=3, port=coupler.ports[3])
 
     return D
