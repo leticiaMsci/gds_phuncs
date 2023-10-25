@@ -40,6 +40,7 @@ def laser_pad(
     It also creates two ports for coupling to each laser waveguide displaced at 142 um.
     Adds lithographic rulerfor flip-chip bonding alignment.
     '''
+    num_marks = min(21, int(pad_width/2))
 
     D = Device("laser pad")
     # ports for future wg connection
@@ -51,7 +52,7 @@ def laser_pad(
         width = ruler_w,
         spacing = ruler_spacing,
         scale = [3,1,1,1,1,2,1,1,1,1],
-        num_marks = 21,
+        num_marks = num_marks,
         layer = wg_layer,
         
         )
@@ -119,10 +120,11 @@ def pwb_link_trench(
     wg_layer=1,
     pwb_trench_w = 300,
     pwb_trench_layer = 50,
-    pwb_trench_wg_overlap = 0.2,
+    pwb_trench_wg_overlap = 0,
     align_box_layer=None,
     distance_alignment_marks = 1000,
     Nports=1,
+    angle = 0
     ):
     '''
     creates laser pad with metal bonding layer and etch pad layer. 
@@ -141,10 +143,9 @@ def pwb_link_trench(
                 port_spacing = port_pitch,
                 N_ports = Nports,
                 wg_layer = wg_layer,
-                port_w = wg_w, ruler_max_w = int(pad_width/2))
+                port_w = wg_w, ruler_max_w = int((pad_width-Nports*port_pitch)/2))
 
     ruler_port1 = D<<RulerPort
-    # port1 = ruler_port1.ports[1]
 
     ruler_port2 = D<<RulerPort
     # ruler_port2.rotate(180)
@@ -155,9 +156,12 @@ def pwb_link_trench(
     Trench=pg.rectangle(size = (pad_width, pwb_trench_w), layer= pwb_trench_layer)
     trench1 = D<<Trench
     trench1.move(origin=(trench1.x, trench1.ymax), destination=(ruler_port1.x, ruler_port1.ports[1].y+pwb_trench_wg_overlap))
+    ruler_port1.movex(-pwb_trench_w*np.sin(angle*np.pi/180)/2)
     # moving port 2
     ruler_port2.move(origin=(ruler_port2.x, ruler_port2.ymax), destination=(ruler_port1.x, trench1.ymin+pwb_trench_wg_overlap))
+    ruler_port2.movex(pwb_trench_w*np.sin(angle*np.pi/180)/2)
 
+    
     # 
 
     # alignment marks
@@ -180,15 +184,18 @@ def pwb_link_trench(
     
     return D.flatten()
 
-def deep_etch_frame(x,y, layer=15, deep_etch_w=500, deep_etch_overlap = 0.2, align_layer = 2, align_box_layer=15, align_boxes_distance = 5000):
+def deep_etch_frame(x,y, layers=[15], offsets = [0], deep_etch_w=500, deep_etch_overlap = 0.2, align_layer = 2, align_box_layer=15, align_boxes_distance = 5000):
     F = Device()
     
     rectangle = pg.rectangle(size=(x,y))
-    F<<pg.outline(rectangle, distance = deep_etch_w, precision = 1e-6, layer = layer)
+    Outline = pg.outline(rectangle, distance = deep_etch_w, precision = 1e-6)
+    for offset, layer in zip(offsets, layers):
+        F<<pg.offset(Outline, distance = offset, precision = 1e-6, layer = layer)
     F.add_port(name = "E", midpoint = (rectangle.xmax+deep_etch_overlap, rectangle.y))
     F.add_port(name = "N", midpoint = (rectangle.x, rectangle.ymax+deep_etch_overlap))
     F.add_port(name = "W", midpoint = (rectangle.xmin-deep_etch_overlap, rectangle.y))
     F.add_port(name = "S", midpoint = (rectangle.x, rectangle.ymin-deep_etch_overlap))
+
 
     if align_layer is not None:
         if not hasattr(align_box_layer, "__len__"):
@@ -198,13 +205,13 @@ def deep_etch_frame(x,y, layer=15, deep_etch_w=500, deep_etch_overlap = 0.2, ali
         for ii, box_layer in enumerate(align_box_layer):
             Align = gds.alignment_mark_ebeam(mark_layer=align_layer, label = f"C{ii}", caliper_bool=False, align_box_layer=box_layer)
             a1 = F<<Align
-            a1.xmax, a1.ymax = F.xmax-Delta//1, F.ymax//1
+            a1.xmax, a1.ymax = (F.xmax-Delta-deep_etch_w)//1, (F.ymax-deep_etch_w)//1
             a2 = F<<Align
-            a2.xmax, a2.ymin = F.xmax-Delta//1, F.ymin//1
+            a2.xmax, a2.ymin = (F.xmax-deep_etch_w-Delta)//1, (F.ymin+deep_etch_w)//1
             a3 = F<<Align
-            a3.xmin, a3.ymin = F.xmin+Delta//1, F.ymin//1
+            a3.xmin, a3.ymin = (F.xmin+Delta+deep_etch_w)//1, (F.ymin+deep_etch_w)//1
             a4 = F<<Align
-            a4.xmin, a4.ymax = F.xmin+Delta//1, F.ymax//1
+            a4.xmin, a4.ymax = (F.xmin+deep_etch_w+Delta)//1, (F.ymax-deep_etch_w)//1
 
             Delta = Delta+align_boxes_distance
 

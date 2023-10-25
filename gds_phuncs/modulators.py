@@ -556,7 +556,7 @@ def segmented_mzi_mod_smooth_gsg(segment_layer, el6_layer, gold_layer,
 
 def resonant_modulator(coupling_gap, electrode_gap, waveguide_width=2, radius=140, length=2000, wg_layer=1, ring_layer = 2, mod_layer = 5):
     D = Device()
-    resonator = D<<rings.taper_racetrack(radius = radius, bend_radius=radius, 
+    resonator = D<<rings.taper_racetrack(radius = radius,# bend_radius=radius, 
                                         length = length, width_narrow=waveguide_width,
                                         width_wide = waveguide_width, layer=ring_layer)
 

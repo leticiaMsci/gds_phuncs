@@ -399,6 +399,16 @@ def _taper(length=10, width1=0.8, width2=1.4, trapz=True, layer=1):
             T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
     return T
 
+def taper(length=10, width1=0.8, width2=1.4, layer=1):
+    T = Device('taper')
+
+    T.add_polygon([(-width1/2, 0), (width1/2, 0), (width2/2, length), (-width2/2, length)], layer=layer)
+    T.add_port(name = 1, midpoint = [0, 0], width = width1, orientation = 270)
+    T.add_port(name = 2, midpoint = [0, length], width = width2, orientation = 90)
+    T.move([-width1/2, 0])
+
+    return T
+
 # def adiabatic_coupler(input_width=0.8, 
 #     narrow_width=0.8, 
 #     wide_width=3.0,
@@ -709,8 +719,6 @@ def circular_coupler(radius_coupler=80, coupler_angle=30, radius_bend=60, width_
     D.add_port(name=2, midpoint = [taper_left.ports[2].x, taper_left.ports[2].y], width = width_io, orientation = 270)
 
     return D
-<<<<<<< Updated upstream
-=======
 
 
 def mode_size_converter(
@@ -736,7 +744,9 @@ def mode_size_converter(
     reference_length = 20,
     reference_width = 0.6,
     angle = 0,
-    bend_radius = 140):
+    bend_radius = 140,
+    clearance_distance_from_tip = 0
+    ):
 
 
     X0 = CrossSection()
@@ -820,7 +830,7 @@ def mode_size_converter(
     clearance_l = D.xsize-length_ct_3
 
     R = pg.rectangle(size = [clearance_l, clearance_w], layer=clearance_layer)
-    R.move(origin = [R.xmin, R.y], destination=[D.xmin, D.y])
+    R.move(origin = [R.xmin+clearance_distance_from_tip, R.y], destination=[D.xmin, D.y])
 
 
     if positive_resist:
@@ -876,4 +886,4 @@ def mode_size_converter(
 
     D.flatten()
     return(D)
->>>>>>> Stashed changes
+
