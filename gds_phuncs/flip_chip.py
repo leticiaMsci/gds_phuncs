@@ -184,7 +184,8 @@ def pwb_link_trench(
     
     return D.flatten()
 
-def deep_etch_frame(x,y, layers=[15], offsets = [0], deep_etch_w=500, deep_etch_overlap = 0.2, align_layer = 2, align_box_layer=15, align_boxes_distance = 5000):
+def deep_etch_frame(x,y, layers=[15], offsets = [0], deep_etch_w=500, deep_etch_overlap = 0.2, align_layer = 2, 
+align_box_layer=15, align_boxes_distance = 3000):
     F = Device()
     
     rectangle = pg.rectangle(size=(x,y))

@@ -391,13 +391,14 @@ def caliper(layers,
 
 
 def alignment_mark_ebeam(
-    cross_w = 1, #width of cross
-    cross_h = 200, # height of cross
+    cross_w = 5, #width of cross
+    cross_h = 800, # height of cross
     caliper_layers = None, # list of layers in order to which write calipers
     caliper_bool = True,
     mark_layer = 0, # alignment mar layer
     align_box_layer=15,
-    label = ""): #box for opening pmma box
+    label = "",
+    txt_size = 50): #box for opening pmma box
     
     if caliper_layers is None and caliper_bool:
         caliper_layers=[mark_layer]
@@ -433,7 +434,7 @@ def alignment_mark_ebeam(
         box = Mark<<Box
         box.center = x.center
     
-    txt = Mark<<pg.text(text=label, size=cross_h/10, layer=mark_layer)
+    txt = Mark<<pg.text(text=label, size=txt_size, layer=mark_layer)
     txt.center = [box.xmax/2, box.ymax/2]
 
     Mark.add_port(name = "c", midpoint = x.center)
